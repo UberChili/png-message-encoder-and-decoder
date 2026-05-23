@@ -71,8 +71,7 @@ impl FromStr for ChunkType {
                 s
             ));
         }
-        // testing
-        println!("Testing: {}", s);
+
         let mut code_vec: Vec<u8> = vec![];
 
         for i in s.chars() {
