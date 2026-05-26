@@ -461,3 +461,4 @@ pub struct Png {
 ```
 
 This falls in line with what we talked about earlier, about a PNG file being simply a header, which is always the same, and a series of chunks, beginning with an **IHDR** chunk and ending with an **IEND** chunk.
+With this in mind, we can begin working.

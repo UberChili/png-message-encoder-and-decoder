@@ -1,19 +1,87 @@
-use std::io::BufReader;
+use std::{
+    fmt::Display,
+    io::{BufReader, Read},
+};
 
 use anyhow::anyhow;
 
 use crate::chunk::Chunk;
-
-pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
 pub struct Png {
     header: [u8; 8],
     chunks: Vec<Chunk>,
 }
 
+#[allow(dead_code)]
 impl Png {
-    // pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+    pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+    pub fn from_chunks(chunks: Vec<Chunk>) -> Png {
+        Png {
+            header: Self::STANDARD_HEADER,
+            chunks,
+        }
+    }
+
+    pub fn append_chunk(&mut self, chunk: Chunk) {
+        self.chunks.push(chunk);
+    }
+
+    pub fn remove_first_chunk(&mut self, chunk_type: &str) -> crate::Result<Chunk> {
+        for (i, chunk) in self.chunks.iter().enumerate() {
+            if chunk.chunk_type().bytes() == chunk_type.as_bytes() {
+                return Ok(self.chunks.remove(i));
+            }
+        }
+        Err(anyhow!("Did not find Chunk of type {:?}", chunk_type))
+    }
+
+    pub fn header(&self) -> &[u8; 8] {
+        &self.header
+    }
+
+    pub fn chunks(&self) -> &[Chunk] {
+        &self.chunks
+    }
+
+    pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+        for chunk in self.chunks.iter() {
+            if chunk.chunk_type().bytes() == chunk_type.as_bytes() {
+                return Some(chunk);
+            }
+        }
+        return None;
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut result: Vec<u8> = Vec::new();
+        for i in self.header.iter() {
+            result.push(*i);
+        }
+
+        for chunk in self.chunks.iter() {
+            for i in chunk.as_bytes() {
+                result.push(i);
+            }
+        }
+
+        result
+    }
 }
+
+impl Display for Png {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Header: {:?}", self.header)?;
+        writeln!(f, "Chunks:")?;
+        for chunk in &self.chunks {
+            writeln!(f, "{}", chunk.chunk_type())?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Png {}
 
 impl TryFrom<&[u8]> for Png {
     type Error = crate::Error;
@@ -22,12 +90,53 @@ impl TryFrom<&[u8]> for Png {
         // Read header and compare
         let mut reader = BufReader::new(value);
         let mut header_buffer: [u8; 8] = [0u8; 8];
-
         reader.read_exact(&mut header_buffer)?;
-
-        if header_buffer != STANDARD_HEADER {
+        if header_buffer != Png::STANDARD_HEADER {
             return Err(anyhow!("Incorrect header found: {:?}", header_buffer));
         }
+
+        // Read _length_ (4 bytes) and then try to read the rest of a possible chunk
+        let mut chunks: Vec<Chunk> = Vec::new();
+
+        // loop
+        loop {
+            // Buffer for length. We'll use this repeatedly as it'll dictate where and when to start reading a chunk
+            let mut len_buf: [u8; 4] = [0u8; 4];
+            // Check if EOF
+            // reader.read_exact(&mut len_buf)?;
+            if reader.read_exact(&mut len_buf).is_err() {
+                break;
+            }
+            // Get usable length
+            let length = u32::from_be_bytes(len_buf);
+            // Read Chunk Type
+            let mut chunk_type_buf: [u8; 4] = [0u8; 4];
+            reader.read_exact(&mut chunk_type_buf)?;
+            // Read data
+            let mut data_buf: Vec<u8> = vec![0; length.try_into().unwrap()];
+            reader.read_exact(&mut data_buf)?;
+            // Read crc
+            let mut crc_buf: [u8; 4] = [0u8; 4];
+            reader.read_exact(&mut crc_buf)?;
+
+            // Chain all together and form a single Chunk vec or slice
+            let chunk_bytes_vec: Vec<u8> = len_buf
+                .into_iter()
+                .chain(chunk_type_buf.into_iter())
+                .chain(data_buf.into_iter())
+                .chain(crc_buf.into_iter())
+                .collect();
+
+            // Attempt to create an actual Chunk by using Chunk::TryFrom
+            let chunk = Chunk::try_from(chunk_bytes_vec.as_slice())?;
+            chunks.push(chunk);
+        }
+
+        // Return the actual Png
+        Ok(Png {
+            header: header_buffer,
+            chunks: chunks,
+        })
     }
 }
 
@@ -53,7 +162,7 @@ mod tests {
         Png::from_chunks(chunks)
     }
 
-    fn chunk_from_strings(chunk_type: &str, data: &str) -> Result<Chunk> {
+    fn chunk_from_strings(chunk_type: &str, data: &str) -> crate::Result<Chunk> {
         use std::str::FromStr;
 
         let chunk_type = ChunkType::from_str(chunk_type)?;
