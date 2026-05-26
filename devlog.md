@@ -240,3 +240,68 @@ pub struct Chunk {
 This reminds us of the importance of understanding types and their sizes and *why* a certain type is the most addecuate for what purpose.
 
 Here it is particularly convenient to be able to use a **Vec** to store the actual data. As we do not know at compile time how much *space* we might need. This is both modern programming practices and idiomatic Rust.
+
+## Necessary traits
+First, we should work on implementing the TryFrom trait, more espeficically, **TryFrom<&[u8]>**, and it looks like follows:
+```rust
+impl TryFrom<&[u8]> for Chunk {
+    type Error = crate::Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let mut reader = BufReader::new(value);
+        let mut length_and_data_buffer: [u8; 4] = [0u8; 4];
+
+        // Read length
+        reader.read_exact(&mut length_and_data_buffer)?;
+        let length = <u32>::from_be_bytes(length_and_data_buffer);
+
+        // Read Chunk Type
+        reader.read_exact(&mut length_and_data_buffer)?;
+        let chunk_type = ChunkType::try_from(length_and_data_buffer)?;
+
+        // Read Data
+        let mut data_buffer: Vec<u8> = vec![0; length.try_into().unwrap()];
+        reader.read_exact(&mut data_buffer)?;
+
+        // Read CRC
+        let mut crc_buffer: [u8; 4] = [0u8; 4];
+        reader.read_exact(&mut crc_buffer)?;
+        let crc = <u32>::from_be_bytes(crc_buffer);
+
+        // Chaining chunk type and data buffers to calculate and compare CRC
+        let chunk_type_and_data: Vec<u8> = chunk_type
+            .bytes()
+            .iter()
+            .cloned()
+            .chain(data_buffer.iter().cloned())
+            .collect();
+
+        // Get crc and compare with what we got above
+        const X25: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let calculated_crc = X25.checksum(&chunk_type_and_data);
+
+        // Do the comparison
+        if calculated_crc != crc {
+            return Err(anyhow!("Crc mismatch!"));
+        }
+
+        Ok(Chunk {
+            length: length,
+            chunk_type: chunk_type,
+            data: data_buffer,
+            crc: crc,
+        })
+    }
+}
+```
+This ended up being a somewhat long-ish function but I believe it is clean, readable and idiomatic Rust code. 
+
+the function signature;
+```rust
+fn try_from(value: &[u8]) -> Result<Self, Self::Error> {}
+```
+Makes it clear that we are receiving a slice of bytes, i.e. a *stream* if you may, out of which we need to orderly read from and structure the data in the way we need it.
+
+We first read the **length** which indicates how long will the **actual data** we need to read will be, then the chunk type, which we then use its bytes to actually create our **Chunk Type** field using the methods we wrote in the last section. And then we proceed with reading the actual data specifying **how much to read**, because of the length we got before. And so on, with the **CRC** field.
+
+Notice how we're using a **BufReader**, a type provided by the Rust standard library, which lives in the **std::io** module. This allows us to idiomatically and cleanly and safely read section by section (in order to not use the term *chunk* and generate redunancy) of said bytes stream, without having to keep track of a position by ourselves.
