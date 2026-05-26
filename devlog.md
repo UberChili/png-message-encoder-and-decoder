@@ -160,7 +160,8 @@ impl ChunkType {
 ```
 These methods are what actually do the structure validation to make sure we get a correct Chunk Type, particularly **is_valid()**.
 
-With this, we can run our tests doing **cargo test** and get output like the following:
+With this, we can run our tests doing **cargo test**. I am not showing the contents of the tests right here, as it would take a lot of space, but you can check them in the Github repo. And after testing, we get output like the following:
+
 ```bash
 cargo test
    Compiling pngme v0.1.0 (/home/andros/Programming/Rust/pngme)
@@ -187,9 +188,13 @@ test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 ```
 
 Pretty.
+Of course, I wanted to show the output of some unit tests here but I'll mostly omit them for the rest of the devlog. Again, if you want to see them you can check them out in the Github repo of this project. There was unit tests for every major part of this project:
+- chunk_type.rs
+- chunk.rs
+- png.rs
 
 # Part 2: Chunks
-Now that we have our **Chunk Type** type working correctly, we can move on to form some Chunks. This was one of the trickiest part since we need to actually read and work with some varieble-length data.
+Now that we have our **Chunk Type** type working correctly, we can move on to form some Chunks. This was one of the trickiest parts since we need to actually read and work with some varieble-length data.
 
 Our **Chunk** type would look like the following:
 ```rust
@@ -202,6 +207,6 @@ pub struct Chunk {
 ```
 
 ADD A MARGIN IMAGE HERE
+(Or maybe not necesarily as margin image, just normally)
 
 Once again, we will be needing the [PNG File Structure](https://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html).
-
