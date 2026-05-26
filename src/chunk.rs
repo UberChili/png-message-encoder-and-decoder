@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::{BufReader, Read};
 
 use anyhow::anyhow;
@@ -10,6 +11,82 @@ pub struct Chunk {
     chunk_type: ChunkType,
     data: Vec<u8>,
     crc: u32,
+}
+
+#[allow(dead_code)]
+impl Chunk {
+    pub fn new(chunk_type: ChunkType, data: Vec<u8>) -> Chunk {
+        // Chaining chunk_type and data for CRC
+        let chunk_type_and_data: Vec<u8> = chunk_type
+            .bytes()
+            .iter()
+            .cloned()
+            .chain(data.iter().cloned())
+            .collect();
+
+        // Calculate CRC
+        const X25: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let calculated_crc = X25.checksum(&chunk_type_and_data);
+
+        Chunk {
+            length: data.len() as u32,
+            chunk_type,
+            data,
+            crc: calculated_crc,
+        }
+    }
+
+    pub fn length(&self) -> u32 {
+        self.length
+    }
+
+    pub fn chunk_type(&self) -> &ChunkType {
+        &self.chunk_type
+    }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    pub fn crc(&self) -> u32 {
+        self.crc
+    }
+
+    pub fn data_as_string(&self) -> crate::Result<String> {
+        let result = String::from_utf8(self.data.clone())?;
+        Ok(result)
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        // Bytes of length
+        let length_bytes: Vec<u8> = self.length.to_be_bytes().into();
+        // Bytes of Chunk Type
+        let chunk_type_bytes: Vec<u8> = self.chunk_type.bytes().to_vec();
+        // Data bytes
+        let data = &self.data;
+        // Crc bytes
+        let crc: Vec<u8> = self.crc.to_be_bytes().to_vec();
+
+        let result: Vec<u8> = length_bytes
+            .iter()
+            .cloned()
+            .chain(chunk_type_bytes.iter().cloned())
+            .chain(data.iter().cloned())
+            .chain(crc.iter().cloned())
+            .collect();
+        result
+    }
+}
+
+impl Display for Chunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Length: {}", self.length)?;
+        writeln!(f, "Chunk Type: {:?}", self.chunk_type.bytes())?;
+        writeln!(f, "Data: {:?}", self.data)?;
+        writeln!(f, "Crc: {:?}", self.crc)?;
+
+        Ok(())
+    }
 }
 
 impl TryFrom<&[u8]> for Chunk {
