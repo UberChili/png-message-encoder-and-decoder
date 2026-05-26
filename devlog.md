@@ -196,17 +196,47 @@ Of course, I wanted to show the output of some unit tests here but I'll mostly o
 # Part 2: Chunks
 Now that we have our **Chunk Type** type working correctly, we can move on to form some Chunks. This was one of the trickiest parts since we need to actually read and work with some varieble-length data.
 
-Our **Chunk** type would look like the following:
-```rust
-pub struct Chunk {
-    lenght: u32,
-    chunk_type: ChunkType,
-    data: Vec<u8>,
-    crc: u32,
-}
+So, the thing is, a **PNG file** consists of a PNG **signature**, followed by a series of *chunks*.
+
+## The PNG file signature
+The first eight bytes of a PNG file always contain the following (decimal) values:
+```bash
+   137 80 78 71 13 10 26 10
 ```
+
+The signature indicates, that the reminder of the file contains a single PNG image, consisting of a series of chunks beginning with an **IHDR** chunk and ending with an **IEND** chunk.
+
+## Chunk layout
+Once again, we will be needing the [PNG File Structure](https://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html).
+
+Each Chunk consists of four parts:
+### length
+A 4-bytes unsigned integer giving the number of bytes in the chunk's data field. The length counts **only** the data field, **not** itself, the chunk type code, or the CRC. Zero is a valid length. 
+### Chunk Type
+A 4-byte chunk type code. For convenience in description and in examining PNG files, type codes are restricted to consist of uppercase and lowercase ASCII letters (A-Z and a-z, or 65-90 and 97-122 decimal). However, encoders and decoders must treat the codes as fixed binary values, not character strings. 
+### Chunk Data
+The data bytes appropriate to the chunk type, if any. This field can be of zero length.
+### CRC
+A 4-byte CRC (Cyclic Redundancy Check) calculated on the preceding bytes in the chunk, including the chunk type code and chunk data fields, but **not** including the length field. The CRC is always present, even for chunks containing no data.
+
+The Chunk data length can be any number of bytes up to the maximum; therefore, implementors cannot assume that chunks are aligned on any boundaries larger than bytes.
+
+Chunks can appear in any order, subject to the restrictions placed on each chunk type. (One notable restriction is that IHDR must appear first and IEND must appear last; thus the IEND chunk serves as an end-of-file marker.) Multiple chunks of the same type can appear, but only if specifically permitted for that type. 
 
 ADD A MARGIN IMAGE HERE
 (Or maybe not necesarily as margin image, just normally)
 
-Once again, we will be needing the [PNG File Structure](https://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html).
+## Implementation
+Our **Chunk** type then, would look like the following:
+
+```rust
+pub struct Chunk {
+    length: u32,
+    chunk_type: ChunkType, // Our custom 4-byte type
+    data: Vec<u8>,
+    crc: u32,
+}
+```
+This reminds us of the importance of understanding types and their sizes and *why* a certain type is the most addecuate for what purpose.
+
+Here it is particularly convenient to be able to use a **Vec** to store the actual data. As we do not know at compile time how much *space* we might need. This is both modern programming practices and idiomatic Rust.

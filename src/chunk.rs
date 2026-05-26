@@ -1,10 +1,12 @@
 use std::io::{BufReader, Read};
 
+use anyhow::anyhow;
+
 use crate::chunk_type::ChunkType;
 
 #[derive(Debug)]
 pub struct Chunk {
-    lenght: u32,
+    length: u32,
     chunk_type: ChunkType,
     data: Vec<u8>,
     crc: u32,
@@ -15,15 +17,48 @@ impl TryFrom<&[u8]> for Chunk {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let mut reader = BufReader::new(value);
-        let mut buffer: [u8; 4] = [0u8; 4];
+        let mut length_and_data_buffer: [u8; 4] = [0u8; 4];
 
-        // Get length
-        reader.read_exact(&mut buffer)?;
-        let length = <u32>::from_be_bytes(buffer);
+        // Read length
+        reader.read_exact(&mut length_and_data_buffer)?;
+        let length = <u32>::from_be_bytes(length_and_data_buffer);
 
-        // Get Chunk Type
-        reader.read_exact(&mut buffer)?;
-        let chunk_type = ChunkType::try_from(buffer);
+        // Read Chunk Type
+        reader.read_exact(&mut length_and_data_buffer)?;
+        let chunk_type = ChunkType::try_from(length_and_data_buffer)?;
+
+        // Read Data
+        let mut data_buffer: Vec<u8> = vec![0; length.try_into().unwrap()];
+        reader.read_exact(&mut data_buffer)?;
+
+        // Read CRC
+        let mut crc_buffer: [u8; 4] = [0u8; 4];
+        reader.read_exact(&mut crc_buffer)?;
+        let crc = <u32>::from_be_bytes(crc_buffer);
+
+        // Chaining chunk type and data buffers to calculate and compare CRC
+        let chunk_type_and_data: Vec<u8> = chunk_type
+            .bytes()
+            .iter()
+            .cloned()
+            .chain(data_buffer.iter().cloned())
+            .collect();
+
+        // Get crc and compare with what we got above
+        const X25: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let calculated_crc = X25.checksum(&chunk_type_and_data);
+
+        // Do the comparison
+        if calculated_crc != crc {
+            return Err(anyhow!("Crc mismatch!"));
+        }
+
+        Ok(Chunk {
+            length: length,
+            chunk_type: chunk_type,
+            data: data_buffer,
+            crc: crc,
+        })
     }
 }
 
