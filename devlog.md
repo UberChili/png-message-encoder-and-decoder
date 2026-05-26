@@ -438,3 +438,26 @@ This time around, we can directly _chain_ the bytes of the chunk type and the da
 For **as_bytes()**, we also need to do some, albeit a little more interesting chain sequence, and then we return all the bytes of the **Chunk** as a **Vec<u8>**. Clean
 
 So this ends up being a matter of being somewhat used to using *.chain()*in idiomatic Rust. I'm not that good at it yet, but we're getting there.
+
+# Part 3: PNG Files
+
+We are now finally ready to implement a full **PNG File**. It is very complicated.
+
+First, we need a _header_ (like we mentioned in the beginning of Part 2) containing 8 bytes that are always the same. Then we need a list of chunks.
+
+Ok maybe it's not that complicated.
+
+We will need a constructor that takes a list of **Chunks**, methods to append and remove chunks, and methods to return the header, a slice of chunks, and the entire PNG file as a **Vec<u8>** of bytes.
+
+## A simple PNG representation
+
+Simple enough, we can represent a PNG file as the following structure:
+
+```rust
+pub struct Png {
+    header: [u8; 8],
+    chunks: Vec<Chunk>,
+}
+```
+
+This falls in line with what we talked about earlier, about a PNG file being simply a header, which is always the same, and a series of chunks, beginning with an **IHDR** chunk and ending with an **IEND** chunk.
