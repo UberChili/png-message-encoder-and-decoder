@@ -18,7 +18,7 @@ pub type Error = anyhow::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 ```
 
-This will make things easier for us down the road, using idiomatic and more elegant errorr handling.
+This will make things easier for us down the road, using idiomatic and more elegant error handling.
 
 With that done, we can begin. We will be working on _Chunk Types_, thus, we will implement our own. These are pretty easy since they're essentially just 4 alphabetic characters. Although our _Chunk Types_ should always be **valid** Chunks (more on this later), it should not be possible to construct an invalid chunk type using our public interface.
 
@@ -26,7 +26,7 @@ The [PNG File Structure Spec](https://www.libpng.org/pub/png/spec/1.2/PNG-Struct
 
 ## Chunk naming conventions
 
-You can read more about the specifics of how this works by visiting the PNG File Structure Spec, mentioned above. Otherwise this article would be incredibly long. The important thing bere to mention is that we will be working with a connsecutive sequence of characters to form a Chunk Type and that we need to be sure it is valid, following the conventions. But of course, we have to treat these characters as bytes. In Rust, a byte can be represented as an **u8**. So we can also represent a vector or an array of bytes as, for example, a [u8]. A valid Chunk Type is formed by four characters exactly, and the capitalization of each character in the "string" has specific meanings.
+You can read more about the specifics of how this works by visiting the PNG File Structure Spec, mentioned above. Otherwise this article would be incredibly long. The important thing bere to mention is that we will be working with a consecutive sequence of characters to form a Chunk Type and that we need to be sure it is valid, following the conventions. But of course, we have to treat these characters as bytes. In Rust, a byte can be represented as an **u8**. So we can also represent a vector or an array of bytes as, for example, a [u8]. A valid Chunk Type is formed by four characters exactly, and the capitalization of each character in the "string" has specific meanings.
 <label for="mn-string" class="margin-toggle">&#8853;</label>
 <input type="checkbox" id="mn-string" class="margin-toggle"/>
 <span class="marginnote">
@@ -266,7 +266,7 @@ pub struct Chunk {
 }
 ```
 
-This reminds us of the importance of understanding types and their sizes and _why_ a certain type is the most addecuate for what purpose.
+This reminds us of the importance of understanding types and their sizes and _why_ a certain type is the most adecuate for what purpose.
 
 Here it is particularly convenient to be able to use a **Vec** to store the actual data. As we do not know at compile time how much _space_ we might need. This is both modern programming practices and idiomatic Rust.
 
@@ -274,7 +274,7 @@ Here it is particularly convenient to be able to use a **Vec** to store the actu
 
 ### TryFrom
 
-First, we should work on implementing the TryFrom trait, more espeficically, **TryFrom<&[u8]>**, and it looks like follows:
+First, we should work on implementing the TryFrom trait, more especifically, **TryFrom<&[u8]>**, and it looks like follows:
 
 ```rust
 impl TryFrom<&[u8]> for Chunk {
@@ -462,3 +462,30 @@ pub struct Png {
 
 This falls in line with what we talked about earlier, about a PNG file being simply a header, which is always the same, and a series of chunks, beginning with an **IHDR** chunk and ending with an **IEND** chunk.
 With this in mind, we can begin working.
+
+First of all, we need to include our Signature Header somewhere so we can use it (mainly for comparisons) every time we need it. At first I was attempting to set it as a **const** at the top of the module, like so:
+```rust
+pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+pub struct Png { ... }
+```
+This is a **module-level constant**. It lives in the **png** module's namespace. To refer to it from outside of this module, we'd have to write **png::STANDARD_HEADER**. It has no relationship to the **Png struct** whatsoever. It just happens to live in the same file. However, our tests expected
+```rust
+Png::STANDARD_HEADER
+```
+This means "an associated constant on the **Png** type." That's different! It livs in the type's namespace, not the module's.
+That soon turned to be a little troublesome. The better, more idiomatic way to do this:
+```rust
+impl Png {
+    pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+}
+```
+I mean, setting it as **pub const** inside the *impl* block of the **Png** type.
+This is like saying that now, **STANDARD_HEADER** belows to **Png** as a type, so **PNG::STANDARD_HEADER**, and **Self::STANDARD_HEADER** both resolve correctly from anywhere, including Trait impls, like what we're about to see...
+
+## Trait implementations
+### TryFrom<&[u8]>
+Just like the TryFrom impl from chunk.rs, this was tricky but considerably fun once you get the hang of things. 
+First, I want to show you how I initially implemented this some time ago when I first tried writing this project:
+
+

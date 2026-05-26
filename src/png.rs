@@ -81,8 +81,6 @@ impl Display for Png {
     }
 }
 
-impl Png {}
-
 impl TryFrom<&[u8]> for Png {
     type Error = crate::Error;
 
