@@ -1,7 +1,7 @@
-
 # The Idea
 
-This is an interesting project usually suggested to people looking into interesting stuff to do for a reinforced learning of the Rust Programming Language. I found it suggested somewhere online, saw it and thought was somewhat hard and above my level, but the author states that programmers that get those feelings are precisely the intended _audience_ of his book, and that everything would make sense later down the road. Seems fun!
+This is an interesting project usually suggested to people looking into interesting stuff to do for a reinforced learning of the Rust Programming Language.
+I found it suggested somewhere online, saw it and thought was somewhat hard and above my level, but the author states that programmers that get those feelings are precisely the intended _audience_ of his book, and that everything would make sense later down the road. Seems fun!
 
 The first three chapters have us implementing a basic **PNG file**. PNG files are essentially just a list of _chunks_, each containing their own data. Each _chunk_ has a _type_ that can be represented as a **4 character string**. There are standard chunk types for things like image data, but there's no rule that would prevent us from inserting our own chunks with whatever data we want, without breaking the PNG file itself. We can even tell PNG decoders to ignore our chunks, depending on how we capitalize our chunk types.
 
@@ -464,28 +464,262 @@ This falls in line with what we talked about earlier, about a PNG file being sim
 With this in mind, we can begin working.
 
 First of all, we need to include our Signature Header somewhere so we can use it (mainly for comparisons) every time we need it. At first I was attempting to set it as a **const** at the top of the module, like so:
+
 ```rust
 pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
 pub struct Png { ... }
 ```
+
 This is a **module-level constant**. It lives in the **png** module's namespace. To refer to it from outside of this module, we'd have to write **png::STANDARD_HEADER**. It has no relationship to the **Png struct** whatsoever. It just happens to live in the same file. However, our tests expected
+
 ```rust
 Png::STANDARD_HEADER
 ```
+
 This means "an associated constant on the **Png** type." That's different! It livs in the type's namespace, not the module's.
 That soon turned to be a little troublesome. The better, more idiomatic way to do this:
+
 ```rust
 impl Png {
     pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 }
 ```
-I mean, setting it as **pub const** inside the *impl* block of the **Png** type.
+
+I mean, setting it as **pub const** inside the _impl_ block of the **Png** type.
 This is like saying that now, **STANDARD_HEADER** belows to **Png** as a type, so **PNG::STANDARD_HEADER**, and **Self::STANDARD_HEADER** both resolve correctly from anywhere, including Trait impls, like what we're about to see...
 
 ## Trait implementations
+
 ### TryFrom<&[u8]>
-Just like the TryFrom impl from chunk.rs, this was tricky but considerably fun once you get the hang of things. 
-First, I want to show you how I initially implemented this some time ago when I first tried writing this project:
+
+Just like the TryFrom impl from chunk.rs, this was tricky but considerably fun once you get the hang of things.
+First, I want to show you how I initially implemented this some time ago when I first tried writing this project, it looks as the following:
+```rust
+impl TryFrom<&[u8]> for Png {
+    type Error = Box<dyn std::error::Error>;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        // Check if slice has at least enough elements to form the header of the file
+        if value.len() < 8 {
+            return Err("Invalid chunks. Can't be zero".into());
+        } else {
+            let header: &[u8] = &value[0..8];
+            // Check if header corresponds to the correct standard header
+            if header != Png::STANDARD_HEADER {
+                return Err("Invalid header. Can't form PNG".into());
+            } else {
+                let mut formed_chunks: Vec<Chunk> = Vec::new();
+                //let remainder: &[u8] = &value[8..];
+
+                let mut current_position = 8;
+                while current_position < value.len() {
+                    if value.len() - current_position < 4 {
+                        return Err("Incomplete chunk length. Therefore can't form chunk".into());
+                    }
+
+                    // Get length
+                    let length_bytes = value[current_position..current_position + 4]
+                        .try_into()
+                        .map_err(|_| "Failed to extract chunk length")?;
+                    let length = u32::from_be_bytes(length_bytes) as usize;
+
+                    // Ensure there's enough bytes for the chunk (length + some additional fields)
+                    let chunk_size = 4 + 4 + length + 4;
+                    if value.len() - current_position < chunk_size {
+                        return Err("Not enough bytes to form a valid chunk".into());
+                    } else {
+                        //let chunk_type_bytes: [u8; 4] = remainder[4 .. 8];
+                        //
+                        //let data: [u8; length as usize] = remainder[8 .. length as usize];
+                        //let crc: [u8; 4] = remainder[8 + length as usize .. 8 + length as usize + 4];
+                        //
+                        //let all_bytes: Vec<u8> = length_bytes
+                        //    .iter()
+                        //    .chain(chunk_type_bytes.iter())
+                        //    .chain(data.iter())
+                        //    .chain(crc.iter())
+                        //    .copied()
+                        //    .collect();
+
+                        let chunk_bytes = &value[current_position..current_position + chunk_size];
+
+                        let chunk = Chunk::try_from(chunk_bytes)?;
+                        formed_chunks.push(chunk);
+
+                        // advance position
+                        current_position += chunk_size;
+                    }
+                }
+                Ok(Self {
+                    header: header
+                        .try_into()
+                        .map_err(|_| "Error creating final header")?,
+                    chunks: formed_chunks,
+                })
+            }
+        }
+    }
+}
+```
+What a mess!
+Notice how I was trying to, **very, very painfully**, do **manual byte buffer parsing**, (sometimes called "index-driven slicing", or "raw slice gymnastics").
+
+I was trying to keep track by myself of the position of something like a "cursor" through the data stream and manually "slicing", if you will, slices of bytes to read the data as I needed it, like in the lines: 
+```rust
+// Get length
+let length_bytes = value[current_position..current_position + 4]
+    .try_into()
+    .map_err(|_| "Failed to extract chunk length")?;
+let length = u32::from_be_bytes(length_bytes) as usize;
+
+// Ensure there's enough bytes for the chunk (length + some additional fields)
+let chunk_size = 4 + 4 + length + 4;
+```
+where I was manually inserting an index in *value* and doing arithmetic all over the place.
+
+This is the traditional, low-level way. No streaming, no abstraction. Just the programmer, the array, their wits, and the compiler.
 
 
+Not going to lie, it builds real strength and deep understanding of what is going on. But it is "archaic" and very error prone. And again, like I said, it was PAINFUL. And it is important to mention that, when writing this first try for an implementation, I was heavily using ChatGPT as a companion. Not fully vibe-coding, but asking a lot of questions and showing him my code a lot, and THAT is the result we got? Phew, that sucks.
+
+Not even going to talk about how much code was commented out as I was breaking my head trying to make it work. It's just bad code: very error prone, badly written, and very ugly to read.
+
+Anyway, there is a better way, this is a more correct and idiomatic implementation:
+```rust
+impl TryFrom<&[u8]> for Png {
+    type Error = crate::Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        // Read header and compare
+        let mut reader = BufReader::new(value);
+        let mut header_buffer: [u8; 8] = [0u8; 8];
+        reader.read_exact(&mut header_buffer)?;
+        if header_buffer != Png::STANDARD_HEADER {
+            return Err(anyhow!(
+                "Can't form Png file. Incorrect header: {:?}.",
+                header_buffer
+            ));
+        }
+
+        // Read _length_ (4 bytes) and then try to read the rest of a possible chunk
+        let mut chunks: Vec<Chunk> = Vec::new();
+
+        // loop through the entire 'file'
+        loop {
+            // Buffer for length. We'll use this repeatedly as it'll dictate where and when to start reading a chunk
+            let mut len_buf: [u8; 4] = [0u8; 4];
+            // Check if EOF
+            if reader.read_exact(&mut len_buf).is_err() {
+                break;
+            }
+            // Get length
+            let length = u32::from_be_bytes(len_buf);
+            // Read Chunk Type
+            let mut chunk_type_buf: [u8; 4] = [0u8; 4];
+            reader.read_exact(&mut chunk_type_buf)?;
+            // Read data
+            let mut data_buf: Vec<u8> = vec![0; length.try_into().unwrap()];
+            reader.read_exact(&mut data_buf)?;
+            // Read crc
+            let mut crc_buf: [u8; 4] = [0u8; 4];
+            reader.read_exact(&mut crc_buf)?;
+
+            // Chain all together and form a single Chunk vec or slice
+            let chunk_bytes_vec: Vec<u8> = len_buf
+                .into_iter()
+                .chain(chunk_type_buf.into_iter())
+                .chain(data_buf.into_iter())
+                .chain(crc_buf.into_iter())
+                .collect();
+
+            // Attempt to create an actual Chunk by using Chunk::TryFrom
+            let chunk = Chunk::try_from(chunk_bytes_vec.as_slice())?;
+            chunks.push(chunk);
+        }
+
+        Ok(Png {
+            header: header_buffer,
+            chunks: chunks,
+        })
+    }
+}
+```
+Much smaller (even counting comments) and clean!
+Notice the usage of **BufReader**, just like we did in **Part 2: Chunks**. And yeah, if you're wondering, when I first tried to implement Chunks that code was also a nooby mess.
+Using *BufReader* allows for a more ergonomic way to "*seek*" through the data stream.
+<label for="sn-bufreader"
+       class="margin-toggle sidenote-number">
+</label>
+<input type="checkbox"
+       id="sn-bufreader"
+       class="margin-toggle"/>
+<span class="margin-toggle">
+When I finished the project and was reviewing this devlog/article to be posted, I learnt that it is actually preferable to use **std::io::Cursor** when it comes to dealing with data that is already **in memory** (a Vec<u8>, a &[u8] or a Box<[u8]> or whatever). And it acts very similarly to **BufReader**, with similar methods (like *read_exact()*), and all. And since we're already working with a "loaded" &[u8], the choice would be to use **Cursor**. But since it's a devlog and the projct is already finished, I'll leave it as it is.
+</span>
+
+No need to manually keep track of a "cursor" and do index-driven slicing. The resulting implementation feels cleaner and more idiomatic.
+Granted, this implementation also has some problems, like for example, I'm doing a lot of allocations, even if small, like for those buffers, but still they could add up, also using many vectors. So yeah, everything has some downsides and most importantly:
+
+I suppose this could have been done even better by a more experienced Rust dev, but for now it works.
+
+The implementation of **Display** is somewhat trivial so I'll omit for now to keep moving.
+
+### Methods
+To begin, let's see the STANDARD_HEADER const and the *from_chunks()* method, which allows us to form a valid **Png** given a collection of **Chunks**:
+```rust
+impl Png {
+    pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+    pub fn from_chunks(chunks: Vec<Chunk>) -> Png {
+        Png {
+            header: Self::STANDARD_HEADER,
+            chunks,
+        }
+    }
+
+    [...snip...]
+}
+```
+
+The rest of our methods for this module follow the style of what we have been doing so far, mostly getters, but we've added some useful stuff (which we will need later), like the ability to append a new chunk to a file:
+```rust
+pub fn append_chunk(&mut self, chunk: Chunk) {
+    self.chunks.push(chunk);
+}
+```
+Well, that's just doing a push on a Vec, not that big of a deal... But we also have now the ability to remove the first chunk of a given type we find:
+```rust
+pub fn remove_first_chunk(&mut self, chunk_type: &str) -> crate::Result<Chunk> {
+    for (i, chunk) in self.chunks.iter().enumerate() {
+        if chunk.chunk_type().bytes() == chunk_type.as_bytes() {
+            return Ok(self.chunks.remove(i));
+        }
+    }
+    Err(anyhow!("Did not find Chunk of type {:?}", chunk_type))
+}
+```
+Here, we iterate through the chunks of the file by using *enumerate()*, and compare its **Chunk Type** with the one provided to the method, if they're the same, we both remove the Chunk from the file (by doing *remove(index)*), and return the given Chunk.
+
+And, in the end, we also have *as_bytes()*, which returns the entire Chunk as a flow of bytes:
+```rust
+pub fn as_bytes(&self) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::new();
+    for i in self.header.iter() {
+        result.push(*i);
+    }
+
+    for chunk in self.chunks.iter() {
+        for i in chunk.as_bytes() {
+            result.push(i);
+        }
+    }
+
+    result
+}
+```
+I was trying to do this by chaining a little but got a little confused and realised that I could write those for loops in like five seconds, so I just did.
+
+With all methods in place, cargo test passed all the tests on the first damn try. The png module is done.
+
+# Part 4: Command Line Arguments
