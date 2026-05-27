@@ -29,10 +29,10 @@ pub enum PngCli {
 #[derive(clap::Args)]
 #[command(version, about, long_about = None)]
 pub struct EncodeArgs {
-    filepath: String,
-    chunk_type: String,
-    message: String,
-    out_filepath: Option<String>,
+    pub filepath: String,
+    pub chunk_type: String,
+    pub message: String,
+    pub out_filepath: Option<String>,
 }
 
 #[derive(clap::Args)]
