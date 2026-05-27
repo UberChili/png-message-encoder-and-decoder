@@ -1,6 +1,7 @@
-use std::env;
-
 use anyhow::Ok;
+use clap::Parser;
+
+use crate::args::PngCli;
 
 mod args;
 mod chunk;
@@ -12,7 +13,15 @@ pub type Error = anyhow::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let cli = PngCli::parse();
+
+    match cli {
+        PngCli::Decode(decode_args) => {
+            println!("filepath to decode: {}", decode_args.filepath);
+            println!("Chunk Type to decode {}", decode_args.chunk_type);
+        }
+        _ => (),
+    }
 
     Ok(())
 }
