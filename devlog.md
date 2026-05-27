@@ -720,6 +720,25 @@ pub fn as_bytes(&self) -> Vec<u8> {
 ```
 I was trying to do this by chaining a little but got a little confused and realised that I could write those for loops in like five seconds, so I just did.
 
-With all methods in place, cargo test passed all the tests on the first damn try. The png module is done.
+With all methods in place, cargo test passed all the tests on the first damn try. The png module is done. Now we have everything we need to form png files, but we're going to take a little detour to talk about something else in the next part.
 
 # Part 4: Command Line Arguments
+The hard part, and the meat of the project is finished. But now we're going to work a little into making it actually usable, and we'll do that by writing a very simple Command Line Interface.
+
+We'll just work with commands like the following examples:
+- pngmsg encode ./image.png ruSt "This is a secret message!"
+- pngmsg decode ./image.png ruSt
+- pngmsg remove ./image.png ruSt
+- pngmsg print ./image.png
+
+In Rust, we can grab command like arguments like so:
+```rust
+fn main() -> Result<()> {
+    let args: Vec<String> = env::args().collect();
+
+    Ok(())
+}
+```
+Which is simple enough, but makes it tricky or laborsome when we need to do something other than, well... simply print the arguments to stdout.... And that's the reason we will use **(clap)[https://docs.rs/clap/latest/clap/]**, a popular Rust crate for command line parsing. This will make everything easier and more ergonomic.
+
+I will put my arguments in args.rs and it looks like follows:
