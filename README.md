@@ -18,13 +18,8 @@ git clone git@github.com:UberChili/png-message-encoder-and-decoder.git
 cd png-message-encoder-and-decoder
 
 cargo build --release
-
-# or for Windows:
-# copy target\release\pngmsg.exe C:\Tools\pngmsg.exe
 ```
  
-Make sure ~/bin (or equivalent) is in your PATH.
-
 ### Run directly without installing
 ```bash
 cargo run --release -- encode image.png RuSt "My secret message"
