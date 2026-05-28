@@ -774,6 +774,90 @@ At first I found the Clap crate to be very confusing and it took me a while to l
 
 Clap allows us to write many different styles of CLI interfaces and each is a little different, but four the needs of this project, the basic idea is that we're supposed to declare the **Arguments** of a given **Command** inside structs that derive **clap::Args**. By doing so, clap understands that whenever one of the members of our **PngCLi** enum is called, it expects the arguments of that member. For example, if we call the **Encode** argument, we need to obligatory supply **filepath, chunk_type and message**, and very conveniently, we can use Rust's **Option<T>** to communicate to clap that **out_filepath** is an optional argument, in case the user wants the output to be stored in a new file.
 
+## Commands
+this is an exciting part, becaues it finally _glues together_ all of the modules and their APIs that we've been writing so far.
+This is the part where we structure our program to do what we want, i.e. encode and decode messages in PNG files. Consider how everything we've been writing so far are separate modules that each do a small subpart of our the task at hand, and next, we will write the actual structure of each command, all store, conveniently, in **commands.rs**.
+
+First, our **encode_message** function, which looks like the following:
+
+```rust
+pub fn encode_message(parameters: &EncodeArgs) -> crate::Result<()> {
+    let path: PathBuf = PathBuf::from(&parameters.filepath);
+
+    // Sanity checks
+    if !path.exists() {
+        return Err(anyhow!("File {} doesn't exist.", &path.display()));
+    }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
+    }
+
+    // Use new filepath if provided
+    let new_filepath = match &parameters.out_filepath {
+        Some(name) => PathBuf::from(name),
+        None => path.clone(),
+    };
+
+    // Reading file and forming PNG
+    let file_data = fs::read(&path)?;
+    let mut png = Png::try_from(file_data.as_slice())?;
+
+    // Convert everything to bytes and form Chunk Type and Chunk
+    let message_data: Vec<u8> = parameters.message.as_bytes().to_vec();
+    // Chunk Type
+    let new_chunk_type: ChunkType = ChunkType::from_str(&parameters.chunk_type)?;
+    // Chunk
+    let hidden_msg_chunk: Chunk = Chunk::new(new_chunk_type, message_data);
+
+    // Check if safe to copy
+    if !hidden_msg_chunk.chunk_type().is_safe_to_copy() {
+        return Err(anyhow!("Could not encode message. Chunk not safe to copy."));
+    }
+
+    // Push new Chunk to png file
+    png.append_chunk(hidden_msg_chunk);
+
+    // Write output to disk
+    fs::write(new_filepath, png.as_bytes())?;
+
+    Ok(())
+}
+```
+Notice how we do some sanity checks like at least checking if the file exists and then if the file is of **.png** extension.
+
+We then proceed to read the file data with the super helpful **fs::read()**, create a png type with our **Png::try_from(&[u8])**, convert the message string to bytes, generate a Chunk Type with our **ChunkType::from_str()**, and generate a new Chunk of all of this with our **Chunk::new(ChunkType, data)**. We then append the new chunk with the hidden message to our png data, using its **.append_chunk()** method and finally write the output to disk and return a non-error signal from the function.
+
+I could be wrong but this fels like safe, short, easy to read and idiomatic code.
+
+The **decode_message(parameters: &DecodeArgs)** function is much similar, although quite shorter. I will talk less about it and just show the code:
+```rust
+pub fn decode_message(parameters: &DecodeArgs) -> crate::Result<()> {
+    let path: PathBuf = PathBuf::from(&parameters.filepath);
+    if !path.exists() {
+        return Err(anyhow!("File {} doesn't exist.", &path.display()));
+    }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
+    }
+
+    // Reading file and interpreting as PNG data
+    let file_data = fs::read(&path)?;
+    let png = Png::try_from(file_data.as_slice())?;
+
+    // loop through Chunks until we find Chunk Type
+    for chunk in png.chunks() {
+        if chunk.chunk_type().bytes() == parameters.chunk_type.as_bytes() {
+            let message = String::from_utf8(chunk.data().to_vec())?;
+            println!("Message in Chunk: {}", message);
+            return Ok(());
+        }
+    }
+    return Err(anyhow!("No matching Chunk found."));
+}
+```
+
+The **remove_message** and **print_file** functions are also interesting in their own ways. Although for brevity (in this already big enough devlog), I will omit them, but please, if you feel curious, be free to check out the repo!
+
 ## Final usage
 So, for example, encode can be called exactly like we wanted before:
 ```bash
@@ -798,6 +882,26 @@ error: the following required arguments were not provided:
   <CHUNK_TYPE>
   <MESSAGE>
 
-Usage: pngme encode <FILEPATH> <CHUNK_TYPE> <MESSAGE> [OUT_FILEPATH]
+Usage: pngmsg encode <FILEPATH> <CHUNK_TYPE> <MESSAGE> [OUT_FILEPATH]
 ```
 Nice!
+
+
+## Conclusions
+When I first tried to tackle this project I was at a complete loss. Of course, like most programmers, I've been exposed to working with raw bytes before, and also back in my school days, but for whatever reasons, I was still very lost. It seemed almost as if I just could not begin writing a single line of code.
+
+My approach was to take it a little slowly. I took some days off and focused more on other stuff and on my dayjob. I was reading, trying to exercise, and just trying to enjoy my afternoons.
+
+One day I began slowly writing code again, and I skimmed through the (Rust Book)[https://doc.rust-lang.org/book/] (which I had already read around a year or year and a half ago). And again, I started throwing some more lines of code around, until one day (around a week ago), I just did **cargo new** and the code just started flowing. It felt great.
+
+But seriously, I feel more "seasoned" if that makes senes. I was finding ways to express my intents in the code by using Rust idioms and its tools way more easily and effortlessly than in previous times and projects.
+
+Other than being happy becaues I definitely learnt a lot and was focused for around a week of coding afternoons, I have to admit the project is also quite cool. Who doesn't like this kind of "hidden messages" stuff?
+
+Anyway, not much more to say.
+
+Check the (repo)[https://github.com/UberChili/png-message-encoder-and-decoder] if you're interested!
+
+Clone it, try it out, and be sure to send a lot of inadequate messages hidden in png files in your emails. Wait, is that weird? Well each his own.
+
+Thank you for reading! Hope you enjoyed it or learnt something along with me through the way!

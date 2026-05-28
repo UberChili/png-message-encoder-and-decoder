@@ -10,10 +10,15 @@ use crate::{
 pub fn encode_message(parameters: &EncodeArgs) -> crate::Result<()> {
     let path: PathBuf = PathBuf::from(&parameters.filepath);
 
-    // Sanity
+    // Sanity checks
     if !path.exists() {
         return Err(anyhow!("File {} doesn't exist.", &path.display()));
     }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
+    }
+
+    // Use new filepath if provided
     let new_filepath = match &parameters.out_filepath {
         Some(name) => PathBuf::from(name),
         None => path.clone(),
@@ -49,6 +54,9 @@ pub fn decode_message(parameters: &DecodeArgs) -> crate::Result<()> {
     if !path.exists() {
         return Err(anyhow!("File {} doesn't exist.", &path.display()));
     }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
+    }
 
     // Reading file and interpreting as PNG data
     let file_data = fs::read(&path)?;
@@ -70,6 +78,9 @@ pub fn remove_message(parameters: &DecodeArgs) -> crate::Result<()> {
     if !path.exists() {
         return Err(anyhow!("File {} doesn't exist.", &path.display()));
     }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
+    }
 
     // Reading file and interpreting as PNG data
     let file_data = fs::read(&path)?;
@@ -88,6 +99,9 @@ pub fn print_file(parameters: &PrintArg) -> crate::Result<()> {
     let path = PathBuf::from(&parameters.filepath);
     if !path.exists() {
         return Err(anyhow!("File {} doesn't exist.", &path.display()));
+    }
+    if path.extension().and_then(|s| s.to_str()) != Some("png") {
+        return Err(anyhow!("File must have .png extension"));
     }
 
     // Reading file and interpreting as PNG data
