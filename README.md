@@ -14,13 +14,11 @@ A hands-on Rust project focused on binary file parsing, PNG specification, and b
 
 ### Build from source
 ```bash
-git clone https://github.com/YourUsername/pngmsg.git
-cd pngmsg
+git clone git@github.com:UberChili/png-message-encoder-and-decoder.git
+cd png-message-encoder-and-decoder
 
 cargo build --release
 
-# Copy binary with desired name
-cp target/release/pngmsg ~/bin/pngmsg    # Linux / macOS
 # or for Windows:
 # copy target\release\pngmsg.exe C:\Tools\pngmsg.exe
 ```
@@ -30,6 +28,18 @@ Make sure ~/bin (or equivalent) is in your PATH.
 ### Run directly without installing
 ```bash
 cargo run --release -- encode image.png RuSt "My secret message"
+```
+
+### Installing to system
+Installing binaries directly to /usr/local via cargo install is generally discouraged on Linux. It bypasses your system's package manager, which can lead to orphaned files and system clutter.
+
+The safest way to install using Cargo is to install the binary to your user's local bin directory:
+```bash
+# Install to ~/.cargo/bin
+cargo install --path .
+
+# Ensure ~/.cargo/bin is in your PATH
+export PATH="$HOME/.cargo/bin:$PATH"
 ```
 
 ## Usage

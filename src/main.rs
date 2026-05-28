@@ -22,7 +22,7 @@ fn main() -> Result<()> {
         PngCli::Encode(encode_args) => encode_message(&encode_args)?,
         PngCli::Decode(decode_args) => decode_message(&decode_args)?,
         PngCli::Remove(decode_args) => remove_message(&decode_args)?,
-        // PngCli::Print(print_args) => print_file(&print_args)?,
+        PngCli::Print(print_args) => print_file(&print_args)?,
     }
 
     Ok(())
