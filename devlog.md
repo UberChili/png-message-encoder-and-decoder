@@ -742,3 +742,27 @@ fn main() -> Result<()> {
 Which is simple enough, but makes it tricky or laborsome when we need to do something other than, well... simply print the arguments to stdout.... And that's the reason we will use **(clap)[https://docs.rs/clap/latest/clap/]**, a popular Rust crate for command line parsing. This will make everything easier and more ergonomic.
 
 I will put my arguments in args.rs and it looks like follows:
+```rust
+#[derive(Parser)]
+#[command(name = "encode")]
+pub enum PngCli {
+    Encode(EncodeArgs),
+    Decode(DecodeArgs),
+}
+
+#[derive(clap::Args)]
+#[command(version, about, long_about = None)]
+pub struct EncodeArgs {
+    pub filepath: String,
+    pub chunk_type: String,
+    pub message: String,
+    pub out_filepath: Option<String>,
+}
+
+#[derive(clap::Args)]
+#[command(version, about, long_about = None)]
+pub struct DecodeArgs {
+    pub filepath: String,
+    pub chunk_type: String,
+}
+```

@@ -1,24 +1,5 @@
 use clap::Parser;
 
-// #[derive(Parser)]
-// #[command(version, about, long_about = None)]
-// pub struct Cli {
-//     /// Command to do
-//     pub command: String,
-//
-//     /// PNG file to work on
-//     pub filepath: String,
-//
-//     /// Chunk Type "name" to work on
-//     pub chunk_type: String,
-//
-//     /// Message
-//     pub message: String,
-//
-//     /// Optional output filename
-//     pub output_filename: Option<String>,
-// }
-
 #[derive(Parser)]
 #[command(name = "encode")]
 pub enum PngCli {
