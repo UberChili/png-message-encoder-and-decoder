@@ -4,12 +4,11 @@ A command-line tool for hiding secret messages inside PNG images using custom ch
 A hands-on Rust project focused on binary file parsing, PNG specification, and building a practical CLI tool.
 
 ## Features
-- **Encode** — Hide a message using a custom 4-letter chunk type
-- **Decode** — Extract hidden messages
-- **Remove** — Delete hidden messages while keeping the image valid
-- **Print** — Show the internal structure of a PNG file
+- **Encode** - Hide a message using a custom 4-letter chunk type
+- **Decode** - Extract hidden messages
+- **Remove** - Delete hidden messages while keeping the image valid
+- **Print** - Show the internal structure of a PNG file
 - Respects PNG "safe-to-copy" rules
-- Optional output file support
 
 ## Installation
 
