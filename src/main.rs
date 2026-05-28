@@ -3,7 +3,7 @@ use clap::Parser;
 
 use crate::{
     args::PngCli,
-    commands::{decode_message, encode_message},
+    commands::{decode_message, encode_message, print_file, remove_message},
 };
 
 mod args;
@@ -19,12 +19,10 @@ fn main() -> Result<()> {
     let cli = PngCli::parse();
 
     match cli {
-        PngCli::Encode(encode_args) => {
-            encode_message(&encode_args)?;
-        }
-        PngCli::Decode(decode_args) => {
-            decode_message(&decode_args)?;
-        }
+        PngCli::Encode(encode_args) => encode_message(&encode_args)?,
+        PngCli::Decode(decode_args) => decode_message(&decode_args)?,
+        PngCli::Remove(decode_args) => remove_message(&decode_args)?,
+        PngCli::Print(print_args) => print_file(&print_args)?,
     }
 
     Ok(())

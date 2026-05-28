@@ -80,10 +80,14 @@ impl Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Chunk Type: {}", self.chunk_type)?;
         writeln!(f, "Length: {}", self.length)?;
-        writeln!(f, "Chunk Type: {:?}", self.chunk_type.bytes())?;
-        writeln!(f, "Data: {:?}", self.data)?;
-        writeln!(f, "Crc: {:?}", self.crc)?;
+        if let Ok(data_value) = self.data_as_string() {
+            writeln!(f, "Data: {}", data_value)?;
+        } else {
+            writeln!(f, "[Binary data - {} bytes]", self.data.len())?;
+        }
+        writeln!(f, "CRC : {}", self.crc)?;
 
         Ok(())
     }

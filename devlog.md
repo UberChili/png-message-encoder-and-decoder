@@ -345,21 +345,24 @@ Notice how we're using a **BufReader**, a type provided by the Rust standard lib
 We finally generate a crc using the **[crc](https://crates.io/crates/crc)** crate and compare the resulting crc with what we read from the byte stream. If they match, we finally have a correct **Chunk** which we can return.
 
 ### Display
-
+The Display trait is interesting because if done poorly, we could be printing a huge number of nonsense for the user, which wouldn't be useful at all. Here's a somewhat decent implementation to report some useful data:
 ```rust
 impl Display for Chunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Chunk Type: {}", self.chunk_type)?;
         writeln!(f, "Length: {}", self.length)?;
-        writeln!(f, "Chunk Type: {:?}", self.chunk_type.bytes())?;
-        writeln!(f, "Data: {:?}", self.data)?;
-        writeln!(f, "Crc: {:?}", self.crc)?;
+        if let Ok(data_value) = self.data_as_string() {
+            writeln!(f, "Data: {}", data_value)?;
+        } else {
+            writeln!(f, "[Binary data - {} bytes]", self.data.len())?;
+        }
+        writeln!(f, "CRC : {}", self.crc)?;
 
         Ok(())
     }
 }
 ```
-
-Simple enough.
+With this implementation, we get a nice little header, the number of chunks, and a list of all chunks giving their type, their length, data if found, or a fallback if the data is not valid UTF-8, and the CRC.
 
 ## Methods
 

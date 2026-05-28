@@ -5,6 +5,8 @@ use clap::Parser;
 pub enum PngCli {
     Encode(EncodeArgs),
     Decode(DecodeArgs),
+    Remove(DecodeArgs),
+    Print(PrintArg),
 }
 
 #[derive(clap::Args)]
@@ -21,4 +23,10 @@ pub struct EncodeArgs {
 pub struct DecodeArgs {
     pub filepath: String,
     pub chunk_type: String,
+}
+
+#[derive(clap::Args)]
+#[command(version, about, long_about = None)]
+pub struct PrintArg {
+    pub filepath: String,
 }
