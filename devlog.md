@@ -888,6 +888,16 @@ Nice!
 
 
 ## Conclusions
+A steganography tool? Me?
+
+This program can now:
+- **Hide** secret messages inside PNG files by creating custom chunks (like RuSt)
+- **Reveal** those hidden messages
+- **Remove** them
+- **Print** the structure of the PNG file
+
+This is classic steganography. Hiding information in plain sight without obviously changing the image. PNG files support "ancillary" chunks that most viewers ignore, so we can smuggle data without breaking the image.
+
 When I first tried to tackle this project I was at a complete loss. Of course, like most programmers, I've been exposed to working with raw bytes before, and also back in my school days, but for whatever reasons, I was still very lost. It seemed almost as if I just could not begin writing a single line of code.
 
 My approach was to take it a little slowly. I took some days off and focused more on other stuff and on my dayjob. I was reading, trying to exercise, and just trying to enjoy my afternoons.
@@ -895,6 +905,13 @@ My approach was to take it a little slowly. I took some days off and focused mor
 One day I began slowly writing code again, and I skimmed through the (Rust Book)[https://doc.rust-lang.org/book/] (which I had already read around a year or year and a half ago). And again, I started throwing some more lines of code around, until one day (around a week ago), I just did **cargo new** and the code just started flowing. It felt great.
 
 But seriously, I feel more "seasoned" if that makes senes. I was finding ways to express my intents in the code by using Rust idioms and its tools way more easily and effortlessly than in previous times and projects.
+
+This project forced me to deal with:
+- Binary file parsing (**BufReader**+ **read_exact**)
+- Custom data structures and traits (**TryFrom**, **Display**)
+- Proper error handling
+- CLI design with **clap**
+- Testing binary formats
 
 Other than being happy becaues I definitely learnt a lot and was focused for around a week of coding afternoons, I have to admit the project is also quite cool. Who doesn't like this kind of "hidden messages" stuff?
 
