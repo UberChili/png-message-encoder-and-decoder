@@ -3,8 +3,6 @@ A command-line tool for hiding secret messages inside PNG images using custom ch
 
 A hands-on Rust project focused on binary file parsing, PNG specification, and building a practical CLI tool.
 
-![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
-
 ## Features
 - **Encode** — Hide a message using a custom 4-letter chunk type
 - **Decode** — Extract hidden messages
