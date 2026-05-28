@@ -769,3 +769,35 @@ pub struct DecodeArgs {
     pub chunk_type: String,
 }
 ```
+
+At first I found the Clap crate to be very confusing and it took me a while to learn what I needed in order to start working. I couldn't understand what I was supposed to do but after a while and following some examples I figured it out.
+
+Clap allows us to write many different styles of CLI interfaces and each is a little different, but four the needs of this project, the basic idea is that we're supposed to declare the **Arguments** of a given **Command** inside structs that derive **clap::Args**. By doing so, clap understands that whenever one of the members of our **PngCLi** enum is called, it expects the arguments of that member. For example, if we call the **Encode** argument, we need to obligatory supply **filepath, chunk_type and message**, and very conveniently, we can use Rust's **Option<T>** to communicate to clap that **out_filepath** is an optional argument, in case the user wants the output to be stored in a new file.
+
+## Final usage
+So, for example, encode can be called exactly like we wanted before:
+```bash
+pngmsg encode <image.png> ruSt "hello there!"
+```
+And if successfull, the output is just silent. If we want to check an image for a hidden message, we do something like the following:
+```bash
+pngmsg decode <image.png> ruSt
+```
+Which used on the previous example, gives us an output like the following:
+```bash
+Message in Chunk: hello there!
+```
+
+The **remove** and **print** commands follow the same rules although their arguments, like shown in the previous sections, are different.
+
+If we use a command incorrectly, clap already did all the heavy work for us and will report it necely:
+```bash
+pngmsg encode <image.png>
+
+error: the following required arguments were not provided:
+  <CHUNK_TYPE>
+  <MESSAGE>
+
+Usage: pngme encode <FILEPATH> <CHUNK_TYPE> <MESSAGE> [OUT_FILEPATH]
+```
+Nice!
